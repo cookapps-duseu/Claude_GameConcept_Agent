@@ -244,6 +244,17 @@ TodoWrite Step 4를 `in_progress`로 표시.
 
 TodoWrite Step 4를 `completed`로 표시.
 
+**[승인 게이트 2.5]**
+
+```
+[Step 4 완료] 요약 정리 완료
+  토큰 사용량: 이 단계 ~{step_tokens} / 누적 ~{token_usage.total}
+
+다음 단계(컨셉안 작성)로 진행할까요? (y/n)
+```
+
+`n`이면 종료. `y`이면 Step 5로.
+
 ---
 
 ## Step 5: 컨셉안 작성
@@ -472,6 +483,7 @@ mv output/pipeline.log "output/{폴더명}/pipeline.log"
   Step 6 이미지 생성:         ~{token_usage.images}
   ─────────────────────────────────
   총 합계:                    ~{token_usage.total}
+  컨텍스트 소모율:            ~{token_usage.total / 200000 * 100 소수점 1자리}% (200K 컨텍스트 윈도우 기준)
 ```
 
 TodoWrite Step 7을 `completed`로 표시.
