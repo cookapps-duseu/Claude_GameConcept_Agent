@@ -10,6 +10,8 @@ description: 게임 컨셉 파이프라인을 단계별로 실행한다. concept
 
 > **토큰 추적 원칙**: Agent 툴 호출 후, 보낸 프롬프트 글자 수 + 받은 응답 글자 수를 합산해 2.5로 나눈 값(정수)을 해당 단계 토큰 추정치로 기록한다. 한 단계에서 여러 번 dispatch한 경우(검증 루프 포함) 모두 합산한다. session.json의 `token_usage` 필드에 단계별 + 누적 합계를 저장한다.
 
+> **시간 추적 원칙**: 파이프라인 시작 시 `pipeline_start=$(date +%s)` 를 Bash로 기록한다. 각 단계 시작 시 `step_start=$(date +%s)`, 완료 시 `step_elapsed=$(( $(date +%s) - step_start ))` 로 경과 시간을 계산한다. 표시 형식: `{분}분 {초}초` (예: `2분 34초`). 초만인 경우 `{초}초`로 표시.
+
 ---
 
 ## 로그 작성 원칙
@@ -31,14 +33,19 @@ mv output/pipeline.log "output/{게임폴더명}/pipeline.log"
 
 ## 시작 전 준비
 
-1. `user_input.json`을 Read 툴로 읽는다. 없으면 오류 메시지 출력 후 종료:
+1. Bash 툴로 파이프라인 시작 시각을 기록한다:
+   ```bash
+   pipeline_start=$(date +%s)
+   ```
+
+2. `user_input.json`을 Read 툴로 읽는다. 없으면 오류 메시지 출력 후 종료:
    ```
    user_input.json이 없습니다. concept-clarifier 스킬을 먼저 실행하세요.
    ```
 
-2. `output/session.json`이 있으면 Read 툴로 읽어 `completed_steps` 목록 파악. 없으면 `completed_steps = []`
+3. `output/session.json`이 있으면 Read 툴로 읽어 `completed_steps` 목록 파악. 없으면 `completed_steps = []`
 
-3. TodoWrite로 진행 목록 생성:
+4. TodoWrite로 진행 목록 생성:
    ```
    TodoWrite([
      { content: "Step 1: 레퍼런스 탐색",         status: completed_steps에 "reference" 있으면 completed 아니면 pending },
@@ -51,7 +58,7 @@ mv output/pipeline.log "output/{게임폴더명}/pipeline.log"
    ])
    ```
 
-4. `user_input`의 필드를 아래 형식으로 프롬프트 문자열 `user_prompt`를 구성해 둔다 (이후 단계에서 재사용):
+5. `user_input`의 필드를 아래 형식으로 프롬프트 문자열 `user_prompt`를 구성해 둔다 (이후 단계에서 재사용):
    ```
    장르: {genre}
    플랫폼: {platform 또는 미지정}
@@ -74,6 +81,8 @@ mv output/pipeline.log "output/{게임폴더명}/pipeline.log"
 `completed_steps`에 "reference"가 있으면 이 단계를 건너뛴다.
 
 TodoWrite Step 1을 `in_progress`로 표시.
+
+Bash 툴로 시작 시각 기록: `step1_start=$(date +%s)`
 
 **1-1. 레퍼런스 탐색 서브에이전트 dispatch:**
 
@@ -135,11 +144,14 @@ Write 툴로 `output/session.json` 저장:
 
 TodoWrite Step 1을 `completed`로 표시.
 
+Bash 툴로 경과 시간 계산: `step1_elapsed=$(( $(date +%s) - step1_start ))`
+
 **[승인 게이트 1]**
 
 ```
 [Step 1 완료] 레퍼런스 게임 탐색 완료
   {reference_games 목록}
+  소요 시간: {step1_elapsed을 분:초 형식으로 표시}
   토큰 사용량: 이 단계 ~{step_tokens}
 
 다음 단계(재미/루프 분석)로 진행할까요? (y/n)
@@ -154,6 +166,8 @@ TodoWrite Step 1을 `completed`로 표시.
 `completed_steps`에 "fun_analysis"와 "loop_analysis"가 모두 있으면 건너뛴다.
 
 TodoWrite Step 2+3을 `in_progress`로 표시.
+
+Bash 툴로 시작 시각 기록: `step23_start=$(date +%s)`
 
 `agents/prompts/fun_analyzer.md`와 `agents/prompts/loop_analyzer.md`를 Read 툴로 읽는다.
 
@@ -195,6 +209,8 @@ Agent 툴 dispatch:
 
 TodoWrite Step 2+3을 `completed`로 표시.
 
+Bash 툴로 경과 시간 계산: `step23_elapsed=$(( $(date +%s) - step23_start ))`
+
 **[승인 게이트 2]**
 
 ```
@@ -206,6 +222,7 @@ TodoWrite Step 2+3을 `completed`로 표시.
 [핵심 게임 루프 분석 요약]
 {loop_analysis 앞 200자}...
 
+소요 시간: {step23_elapsed을 분:초 형식으로 표시}
 토큰 사용량: 이 단계 ~{step_tokens} / 누적 ~{token_usage.total}
 
 다음 단계(요약 정리)로 진행할까요? (y/n)
@@ -220,6 +237,8 @@ TodoWrite Step 2+3을 `completed`로 표시.
 `completed_steps`에 "synthesis"가 있으면 건너뛴다.
 
 TodoWrite Step 4를 `in_progress`로 표시.
+
+Bash 툴로 시작 시각 기록: `step4_start=$(date +%s)`
 
 `agents/prompts/content_synthesizer.md`를 Read 툴로 읽는다.
 
@@ -244,10 +263,13 @@ TodoWrite Step 4를 `in_progress`로 표시.
 
 TodoWrite Step 4를 `completed`로 표시.
 
+Bash 툴로 경과 시간 계산: `step4_elapsed=$(( $(date +%s) - step4_start ))`
+
 **[승인 게이트 2.5]**
 
 ```
 [Step 4 완료] 요약 정리 완료
+  소요 시간: {step4_elapsed을 분:초 형식으로 표시}
   토큰 사용량: 이 단계 ~{step_tokens} / 누적 ~{token_usage.total}
 
 다음 단계(컨셉안 작성)로 진행할까요? (y/n)
@@ -262,6 +284,8 @@ TodoWrite Step 4를 `completed`로 표시.
 `completed_steps`에 "concept"가 있으면 건너뛴다.
 
 TodoWrite Step 5를 `in_progress`로 표시.
+
+Bash 툴로 시작 시각 기록: `step5_start=$(date +%s)`
 
 `agents/prompts/concept_writer.md`를 Read 툴로 읽는다.
 
@@ -292,6 +316,8 @@ TodoWrite Step 5를 `completed`로 표시.
 `completed_steps`에 "concept_quality"가 있으면 건너뛴다.
 
 TodoWrite Step 5.5를 `in_progress`로 표시.
+
+Bash 툴로 시작 시각 기록: `step55_start=$(date +%s)`
 
 `agents/prompts/concept_quality_evaluator.md`를 Read 툴로 읽는다.
 
@@ -350,15 +376,19 @@ TodoWrite Step 5.5를 `in_progress`로 표시.
 
 TodoWrite Step 5.5를 `completed`로 표시.
 
+Bash 툴로 경과 시간 계산: `step55_elapsed=$(( $(date +%s) - step55_start ))`  
+(Step 5 + Step 5.5 합산: `step5_total_elapsed=$(( $(date +%s) - step5_start ))`)
+
 **[승인 게이트 3]**
 
 ```
-[Step 5.5 완료] 컨셉 품질 평가 통과
+[Step 5+5.5 완료] 컨셉안 작성 및 품질 평가 통과
   mechanism: {score}, fun: {score}, market: {score}
 
 [컨셉안 요약 - 처음 500자]
 {concept 앞 500자}...
 
+소요 시간: {step5_total_elapsed을 분:초 형식으로 표시}
 토큰 사용량: 이 단계 ~{step_tokens} / 누적 ~{token_usage.total}
 
 다음 단계(UI 이미지 생성)로 진행할까요? (y/n)
@@ -373,6 +403,8 @@ TodoWrite Step 5.5를 `completed`로 표시.
 `completed_steps`에 "images"가 있으면 건너뛴다.
 
 TodoWrite Step 6을 `in_progress`로 표시.
+
+Bash 툴로 시작 시각 기록: `step6_start=$(date +%s)`
 
 **6-1. 컨셉안에서 씬 목록 추출:**
 
@@ -433,12 +465,15 @@ svg_feedback = ""
 
 TodoWrite Step 6을 `completed`로 표시.
 
+Bash 툴로 경과 시간 계산: `step6_elapsed=$(( $(date +%s) - step6_start ))`
+
 **[승인 게이트 4]**
 
 ```
 [Step 6 완료] 이미지 생성 완료
   씬 수: {scenes 수}개
   레퍼런스 이미지: {reference_images 수}개
+  소요 시간: {step6_elapsed을 분:초 형식으로 표시}
   토큰 사용량: 이 단계 ~{step_tokens} / 누적 ~{token_usage.total}
 
 다음 단계(파일 출력)로 진행할까요? (y/n)
@@ -455,6 +490,7 @@ TodoWrite Step 7을 `in_progress`로 표시.
 Bash 툴로 실행:
 ```bash
 PYTHONUTF8=1 .venv/Scripts/python scripts/export.py --session output/session.json
+total_elapsed=$(( $(date +%s) - pipeline_start ))
 ```
 
 출력된 폴더 경로(`output/{폴더명}`)를 파악하고, pipeline.log를 해당 폴더로 이동:
@@ -472,6 +508,15 @@ mv output/pipeline.log "output/{폴더명}/pipeline.log"
   - core_loop.md    핵심 게임 루프 요약
   - core_fun.md     핵심 재미 요소 요약
   - session.json    파이프라인 실행 데이터
+
+[소요 시간]
+  Step 1 레퍼런스 탐색:      {step1_elapsed 분:초}
+  Step 2+3 재미/루프 분석:   {step23_elapsed 분:초}
+  Step 4 요약 정리:          {step4_elapsed 분:초}
+  Step 5+5.5 컨셉안 작성:   {step5_total_elapsed 분:초}
+  Step 6 이미지 생성:        {step6_elapsed 분:초}
+  ─────────────────────────────────
+  총 소요 시간:              {total_elapsed 분:초}
 
 [토큰 사용량 요약 (추정치)]
   Step 1 레퍼런스 탐색:      ~{token_usage.reference}
