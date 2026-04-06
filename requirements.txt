@@ -1,0 +1,9 @@
+claude-agent-sdk
+anthropic
+python-dotenv
+anyio
+python-docx
+jinja2
+pytest
+pytest-asyncio
+pyyaml

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(git push:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PID_FILE='/e/Github/Claude_GameConcept_Agent/output/pipeline.pid'; if [ -f \"$PID_FILE\" ]; then kill \"$(cat \"$PID_FILE\")\" 2>/dev/null || true; rm -f \"$PID_FILE\"; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

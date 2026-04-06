@@ -1,0 +1,8 @@
+output:
+  format: html  # word / html / both
+
+models:
+  generator: claude-sonnet-4-6           # 분석 에이전트 (ReferenceSearcher, FunAnalyzer, LoopAnalyzer, ContentSynthesizer)
+  validator: claude-haiku-4-5-20251001   # 검증 에이전트 (JSON pass/fail 판단만)
+  writer: claude-opus-4-6                # 최종 컨셉안 작성 (ConceptWriter)
+  image: claude-sonnet-4-6              # 이미지 생성 에이전트
